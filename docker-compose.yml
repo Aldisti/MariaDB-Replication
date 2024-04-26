@@ -1,0 +1,29 @@
+
+services:
+
+  primary:
+    container_name: "primary"
+    image: primary/mariadb
+    build:
+      context: ./primary
+    restart: unless-stopped
+    environment:
+      - MARIADB_ROOT_PASSWORD=root
+      - MARIADB_USER=user
+      - MARIADB_PASSWORD=password
+      - IS_SLAVE=0
+
+  replica:
+    container_name: replica
+    image: replica/mariadb
+    build:
+      context: ./replica
+    restart: unless-stopped
+    environment:
+      - MARIADB_ROOT_PASSWORD=root
+      - MARIADB_USER=user
+      - MARIADB_PASSWORD=password
+      - IS_SLAVE=1
+    depends_on:
+      - primary
+
