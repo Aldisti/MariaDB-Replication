@@ -28,7 +28,10 @@ These files will be used to correctly configure the database.
 ## Database
 
 We have two databases, primary (or master) and replica (or slave), they both have the same initialization script (init.sh) and conf file (my.cnf).
-There is only one major difference: the server_id in the conf file. It has to be "unique for each server in the replication group", master included.
+There is only one major difference: the server_id in the conf file.
+
+> [!WARNING]
+> The server_id has to be unique for each server in the replication group, master included.
 
 ### init.sh
 
@@ -50,8 +53,16 @@ At the begin, when we start the containers, we have:
 Now that the two databases are up and running, if we want to switch the roles we can simply run the script switchdb.sh.
 This script will set the primary as read-only (in order to stop all write operations), then will wait for the replica to fully synchronize with the primary and when the replica has finished the syncronization the switch will happen.
 
-## Reccomendations
+### Setup
 
-In order to have a basic and functional replication system, you have to 
+In order to have a basic and functional replication system, you have to:
+- give to the master and the slaves unique server_ids;
+- activate the binary log on the master;
+- create a slave user on the master and grant him the REPLICATION SLAVE privilege;
+- set the master informations on the slave;
+- start the slave.
+
+> [!TIP]
+> Many of these actions could be very helpful to apply also on the slaves.
 
 
