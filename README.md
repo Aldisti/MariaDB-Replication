@@ -4,9 +4,9 @@
 ## Introduction
 
 In this example of replication we have two databases: primary and replica.
-The replica copies all transactions of the primary and keeps synchronized with it, in this way, we have a perfect copy of the primary.
+The replica copies all transactions of the primary and keeps synchronized with it, in this way, we have an exact copy of the primary.
 When the need arises, we can switch the replica to be the primary and keep reading and writing our data without any loss.
-Then we just have to synchronize the old primary (new replica) with the new primary (old replica) and, when it's done, we can switch back the new replica to its original role.
+Then we just have to synchronize the old primary (new replica) with the new primary (old replica) and, when it's done, we can switch back the new replica (old primary) to its original role.
 
 ## Architecture
 
@@ -34,12 +34,11 @@ There is only one major difference: the server_id in the conf file. It has to be
 
 When the script init.sh is run we do some common operations:
 - create a slave user (so it can be used by a replica server).
-- assign to the user the [REPLICA SLAVE](https://dev.mysql.com/doc/refman/8.0/en/privileges-provided.html#priv_replication-slave) privilege.
+- assign to the previously created user the [REPLICA SLAVE](https://dev.mysql.com/doc/refman/8.0/en/privileges-provided.html#priv_replication-slave) privilege.
 
 We do these operations also on the primary, so, in case, we are ready to switch the roles.
 Then follows an if statement that allows us to run different commands based on the type of the database, if it is master or slave.
-- set the master information, like host, port, etc.
-- slave case, we start the slave and nothing more.
+- slave case, we set the master information, like host, port, etc and start the slave.
 - master case, we create a database and a table for demostration purposes.
 
 ## Replication
@@ -49,6 +48,10 @@ At the begin, when we start the containers, we have:
 - the replica who reads the primary's binary log in order to replicate its data.
 
 Now that the two databases are up and running, if we want to switch the roles we can simply run the script switchdb.sh.
-This script will set the primary as read-only (in order to stop all write operations), then will wait for the replica to fully synchronize with the primary and when the replica has finished the syncronization switch the roles.
+This script will set the primary as read-only (in order to stop all write operations), then will wait for the replica to fully synchronize with the primary and when the replica has finished the syncronization the switch will happen.
+
+## Reccomendations
+
+In order to have a basic and functional replication system, you have to 
 
 
