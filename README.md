@@ -71,12 +71,12 @@ This script will:
 
 ### Setup
 
-In order to have a basic and functional replication system, you have to:
-- give to the **primary** and the **replica** unique server_ids;
-- activate the binary log on the **primary**;
-- create a *slave* user on the **primary** and grant him the REPLICATION SLAVE privilege;
-- set the *master* info on the **replica**;
-- start the *slave* on the **replica**.
+To recreate a basic and functional replication system, you have to:
+1. give to the **primary** and the **replica** unique server_ids;
+1. activate the binary log on the **primary**;
+1. create a *slave* user on the **primary** and grant him the REPLICATION SLAVE privilege;
+1. set the *master* info on the **replica**;
+1. start the *slave* on the **replica**.
 
 > [!TIP]
 > Many of these actions could be very helpful to apply to the *slave* too.
