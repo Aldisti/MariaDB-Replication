@@ -34,7 +34,7 @@ else
 	exe_query "CREATE DATABASE IF NOT EXISTS testdb;"
 
 	log_info "creating table"
-	exe_query "USE testdb; CREATE TABLE IF NOT EXISTS users (id INTEGER AUTO_INCREMENT PRIMARY KEY, username VARCHAR(32) UNIQUE, password VARCHAR(72));"
+	exe_query "USE testdb; CREATE TABLE IF NOT EXISTS users (id INTEGER AUTO_INCREMENT PRIMARY KEY, username VARCHAR(32) UNIQUE);"
 
 	log_info "starting as MASTER"
 fi
