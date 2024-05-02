@@ -59,6 +59,9 @@ In the beginning, when we start the containers, we have:
 
 ### Switch
 
+> [!IMPORTANT]
+> The `switchdb.sh` script is being replaced by `switch.sh` which is a newer version with better error handling than the former one.
+
 Now that the two databases are up and running, if we want to switch the roles we can simply run the script `switchdb.sh`.
 
 This script will:
