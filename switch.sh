@@ -22,7 +22,8 @@ REPLICA_SLAVE_PASSWORD="password"
 # UTILS VARIABLES #
 #                 #
 
-DEBUG=1
+# 1:DEBUG 2:INFO 3:WARNING 4:ERROR
+LOG_LEVEL=3
 
 # COMMANDS
 DOCKER_EXEC="docker exec"
@@ -36,8 +37,6 @@ STOP_SLAVE="STOP ALL SLAVES;"
 RESET_SLAVE="RESET SLAVE ALL;"
 SET_RDONLY="SET GLOBAL read_only=ON;"
 UNSET_RDONLY="SET GLOBAL read_only=OFF;"
-CHANGE_MASTER_REPLICA="CHANGE MASTER TO MASTER_HOST='$PRIMARY_HOST', MASTER_USER='$PRIMARY_SLAVE', MASTER_PASSWORD='$PRIMARY_SLAVE_PASSWORD', MASTER_PORT=$PRIMARY_PORT;"
-CHANGE_MASTER_PRIMARY="CHANGE MASTER TO MASTER_HOST='$REPLICA_HOST', MASTER_USER='$REPLICA_SLAVE', MASTER_PASSWORD='$REPLICA_SLAVE_PASSWORD', MASTER_PORT=$REPLICA_PORT;"
 
 #           #
 # FUNCTIONS #
@@ -51,28 +50,35 @@ _log() {
 
 # log_err <error_message> [exit_code]
 log_err() {
-	_log "ERROR" "$1"
-	if [ -z "$2" ]; then
-		exit $2
+	if [ $LOG_LEVEL -lt 5 ]; then
+		_log "ERROR" "$1"
 	fi
-}
-
-# log_info <message>
-log_info() {
-	_log "INFO" "$1"
-}
-
-# log_debug <message>
-log_debug() {
-	if [ $DEBUG -eq 1 ]; then
-		_log "DEBUG" "$1"
+	if ! [ -z "$2" ]; then
+		exit $2
 	fi
 }
 
 # log_warn <message>
 log_warn() {
-	_log "WARNING" "$1"
+	if [ $LOG_LEVEL -lt 4 ]; then
+		_log "WARNING" "$1"
+	fi
 }
+
+# log_info <message>
+log_info() {
+	if [ $LOG_LEVEL -lt 3 ]; then
+		_log "INFO" "$1"
+	fi
+}
+
+# log_debug <message>
+log_debug() {
+	if [ $LOG_LEVEL -lt 2 ]; then
+		_log "DEBUG" "$1"
+	fi
+}
+
 
 # _exe_query <host> <user> <password> <query>
 _exe_query() {
@@ -88,9 +94,22 @@ _exe_query() {
 	return $_errno
 }
 
+# set_var <var_name> <var_value>
+set_var() {
+	if ! [ $# -eq 2 ] || [ -z "$1" ]; then
+		log_err "'set_var' received invalid arguments." 1
+	fi
+	if [ -z "$2" ]; then
+		log_err "'set_var' received invalid value for '$1'"
+		return 1
+	fi
+
+	declare -g "$1"="$2"
+	return 0
+}
+
 # _exe_on primary|replica <query>
 exe_on() {
-	log_debug "'exe_on' got: |$1| |$2| |$3|"
 	if ! [ $# -eq 2 ]; then
 		log_err "'exe_on' received invalid arguments."
 		return 1
@@ -99,7 +118,6 @@ exe_on() {
 	local _admin="${1^^}_ADMIN"
 	local _psswd="${1^^}_ADMIN_PASSWORD"
 
-	log_debug "Executing: ${!_host} - ${!_admin} - ${!_psswd} - '$2'"
 	_exe_query "${!_host}" "${!_admin}" "${!_psswd}" "$2"
 	return $?
 }
@@ -111,7 +129,7 @@ is_up() {
 		return 1
 	fi
 	local out="$(exe_on "$1" "$IS_UP")"
-	log_debug "'is_up $1' got response: |$out|"
+	log_debug "'is_up' '$1' got response: $out"
 	if [ $? ] && [ "$out" = "1" ]; then
 		return 0
 	fi
@@ -130,7 +148,6 @@ is_slave() {
 	if ! [ $? ]; then
 		return $?
 	fi
-	log_debug "'is_slave' got |$out|"
 	if grep -qwe "yes" <<< "${out,,}"; then
 		if grep -qwe "no" <<< "${out,,}"; then
 			log_warn "Detected a problem in slave '$1'"
@@ -200,21 +217,21 @@ switch() {
 		master="primary"
 	fi
 
-	if [ -z "$slave" ]; then
-		log_err "Slave not found, please check servers' info."
-	else
-		log_info "Detected '$slave' as slave"
-	fi
 	if [ -z "$master" ]; then
-		log_err "Master not found, please check servers' info."
+		log_warn "Master not found."
 	else
 		log_info "Detected '$master' as master"
+	fi
+	if [ -z "$slave" ]; then
+		log_err "Slave not found." 3
+	else
+		log_info "Detected '$slave' as slave"
 	fi
 
 	if is_up "$master"; then
 		switch_to_slave "$master"
 		if ! [ $? ]; then
-			log_war "Cannot switch master to slave."
+			log_warn "Cannot switch master to slave."
 		fi
 	fi
 
@@ -233,6 +250,42 @@ switch() {
 
 # switch_to_master "primary"
 # switch_to_slave "replica"
+
+while [ $# -gt 0 ]; do
+	tmp="$1"
+	shift
+	case $tmp in
+		-? | -h | --help)
+			echo "Working on it :)"
+			exit 0
+		;;
+		--primary-host) set_var "PRIMARY_HOST" "$1" ;;
+		--primary-port) set_var "PRIMARY_PORT" "$1" ;;
+		--primary-user) set_var "PRIMARY_USER" "$1" ;;
+		--primary-password) set_var "PRIMARY_PASSWORD" "$1" ;;
+		--replica-host) set_var "REPLICA_HOST" "$1" ;;
+		--replica-port) set_var "REPLICA_PORT" "$1" ;;
+		--replica-user) set_var "REPLICA_USER" "$1" ;;
+		--replica-password) set_var "REPLICA_PASSWORD" "$1" ;;
+
+		--log-level)
+			if ! [[ "$1" =~ ^[1-5]$ ]]; then
+				echo -e "Invalid argument value for '--log-level'."
+				exit 2
+			fi
+			set_var "LOG_LEVEL" "$1"
+		;;
+		*)
+			log_err "Unrecognized option '$tmp'." "2"
+		;;
+	esac
+	shift
+done
+
+# DYNAMIC VARIABLES
+
+CHANGE_MASTER_REPLICA="CHANGE MASTER TO MASTER_HOST='$PRIMARY_HOST', MASTER_USER='$PRIMARY_SLAVE', MASTER_PASSWORD='$PRIMARY_SLAVE_PASSWORD', MASTER_PORT=$PRIMARY_PORT;"
+CHANGE_MASTER_PRIMARY="CHANGE MASTER TO MASTER_HOST='$REPLICA_HOST', MASTER_USER='$REPLICA_SLAVE', MASTER_PASSWORD='$REPLICA_SLAVE_PASSWORD', MASTER_PORT=$REPLICA_PORT;"
 
 switch
 
