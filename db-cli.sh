@@ -7,19 +7,19 @@ FIRST_HOST="primary"
 FIRST_PORT="3306"
 FIRST_USER="user"
 FIRST_PASSWORD="password"
-FIRST_SLAVE="slave"
-FIRST_SLAVE_PASSWORD="password"
+FIRST_REPLICA="replica"
+FIRST_REPLICA_PASSWORD="password"
 
 SECOND_HOST="replica"
 SECOND_PORT="3306"
 SECOND_USER="user"
 SECOND_PASSWORD="password"
-SECOND_SLAVE="slave"
-SECOND_SLAVE_PASSWORD="password"
+SECOND_REPLICA="replica"
+SECOND_REPLICA_PASSWORD="password"
 
 
 # UTILS
-ACTUAL_MASTER=1
+ACTUAL_PRIMARY=1
 ERRNO=0
 
 # COLORS
@@ -59,15 +59,15 @@ _exe_second() {
 	return $?
 }
 
-_exe_master() {
-	if [ $ACTUAL_MASTER -eq 1 ];then
+_exe_primary() {
+	if [ $ACTUAL_PRIMARY -eq 1 ];then
 		_exe_first "$1"
 		return $?
-	elif [ $ACTUAL_MASTER -eq 2 ];then
+	elif [ $ACTUAL_PRIMARY -eq 2 ];then
 		_exe_second "$1"
 		return $?
 	else
-		_error "num '$ACTUAL_MASTER' not valid in '_exe_master'"
+		_error "num '$ACTUAL_PRIMARY' not valid in '_exe_primary'"
 	fi
 	return 0
 }
@@ -79,7 +79,7 @@ help() {
 	echo -e "\t${CYAN}SHOW${RESET} [1|2]: shows the database N table."
 	echo -e "\t${CYAN}STATUS${RESET} [1|2]: shows the database N status."
 	echo -e "\t${CYAN}ADD${RESET} [USERNAME]: adds a new user called USERNAME."
-	echo -e "\t${CYAN}SWITCH${RESET}: switch database roles, master -> slave and viceversa."
+	echo -e "\t${CYAN}SWITCH${RESET}: switch database roles, primary -> replica and viceversa."
 	echo -e "\t${CYAN}EXIT${RESET}: exits the CLI."
 }
 
@@ -108,9 +108,10 @@ status() {
 add() {
 	if [ -z "$1" ]; then
 		_invalid "no USERNAME inserted."
+		return 1
 	fi
 #	echo "name: $DB_NAME"
-	_exe_master "USE ${DB_NAME}; INSERT INTO $DB_TABLE (username) values ('$1')"
+	_exe_primary "USE ${DB_NAME}; INSERT INTO $DB_TABLE (username) values ('$1')"
 	if ! [ $? -eq 0 ]; then
 		echo -e "Try with a different username."
 	else
@@ -119,27 +120,35 @@ add() {
 }
 
 switch() {
-	if [ $ACTUAL_MASTER -eq 1 ]; then
-		./switchdb.sh \
-			-mH "$FIRST_HOST" -mP "$FIRST_PORT" \
-			-mu "$FIRST_SLAVE" -mp "$FIRST_SLAVE_PASSWORD" \
-			-sH "$SECOND_HOST" -sP "$SECOND_PORT" \
-			-su "$SECOND_SLAVE" -sp "$SECOND_SLAVE_PASSWORD"
+	if [ $ACTUAL_PRIMARY -eq 1 ]; then
+		./switch.sh \
+			--primary-host "$FIRST_HOST" \
+			--primary-port "$FIRST_PORT" \
+			--primary-user "$FIRST_REPLICA" \
+			--primary-password "$FIRST_REPLICA_PASSWORD" \
+			--replica-host "$SECOND_HOST" \
+			--replica-port "$SECOND_PORT" \
+			--replica-user "$SECOND_REPLICA" \
+			--replica-password "$SECOND_REPLICA_PASSWORD"
 		ERRNO=$?
-	elif [ $ACTUAL_MASTER -eq 2 ]; then
-		./switchdb.sh \
-			-mH "$SECOND_HOST" -mP "$SECOND_PORT" \
-			-mu "$SECOND_SLAVE" -mp "$SECOND_SLAVE_PASSWORD" \
-			-sH "$FIRST_HOST" -sP "$FIRST_PORT" \
-			-su "$FIRST_SLAVE" -sp "$FIRST_SLAVE_PASSWORD"
+	elif [ $ACTUAL_PRIMARY -eq 2 ]; then
+		./switch.sh \
+			--primary-host "$SECOND_HOST" \
+			--primary-port "$SECOND_PORT" \
+			--primary-user "$SECOND_REPLICA" \
+			--primary-password "$SECOND_REPLICA_PASSWORD" \
+			--replica-host "$FIRST_HOST" \
+			--replica-port "$FIRST_PORT" \
+			--replica-user "$FIRST_REPLICA" \
+			--replica-password "$FIRST_REPLICA_PASSWORD"
 		ERRNO=$?
 	else
-		_error "num '$ACTUAL_MASTER' not valid in 'switch'"
+		_error "num '$ACTUAL_PRIMARY' not valid in 'switch'"
 		return 1
 	fi
 	if [ $ERRNO -eq 0 ]; then
 		echo -e "${GREEN}switch${RESET} successfull!"
-		ACTUAL_MASTER=$((ACTUAL_MASTER % 2 + 1))
+		ACTUAL_PRIMARY=$((ACTUAL_PRIMARY % 2 + 1))
 	fi
 }
 

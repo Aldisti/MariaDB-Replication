@@ -11,7 +11,7 @@ services:
       - MARIADB_ROOT_PASSWORD=root
       - MARIADB_USER=user
       - MARIADB_PASSWORD=password
-      - IS_SLAVE=0
+      - IS_REPLICA=0
 
   replica:
     container_name: replica
@@ -23,7 +23,7 @@ services:
       - MARIADB_ROOT_PASSWORD=root
       - MARIADB_USER=user
       - MARIADB_PASSWORD=password
-      - IS_SLAVE=1
+      - IS_REPLICA=1
     depends_on:
       - primary
 
