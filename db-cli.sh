@@ -79,6 +79,7 @@ help() {
 	echo -e "\t${CYAN}SHOW${RESET} [1|2]: shows the database N table."
 	echo -e "\t${CYAN}STATUS${RESET} [1|2]: shows the database N status."
 	echo -e "\t${CYAN}ADD${RESET} [USERNAME]: adds a new user called USERNAME."
+	echo -e "\t${CYAN}CYCLE${RESET} [N]: adds N random users to the database."
 	echo -e "\t${CYAN}SWITCH${RESET}: switch database roles, master -> slave and viceversa."
 	echo -e "\t${CYAN}EXIT${RESET}: exits the CLI."
 }
@@ -94,7 +95,7 @@ show() {
 	fi
 }
 
-status() {
+_status() {
 	if [ -z "$1" ] || [ "$1" = "1" ]; then
 		echo -e "${BLUE}$FIRST_HOST${RESET}"
 		_exe_first "SHOW SLAVE STATUS\G;" | grep -we "Slave_IO_Running" -we "Slave_SQL_Running" | awk '{print $1 " " $2}'
@@ -140,6 +141,8 @@ switch() {
 	if [ $ERRNO -eq 0 ]; then
 		echo -e "${GREEN}switch${RESET} successfull!"
 		ACTUAL_MASTER=$((ACTUAL_MASTER % 2 + 1))
+	else
+		echo -e "${RED}switch${RESET} failed with error $ERRNO."
 	fi
 }
 
@@ -164,11 +167,21 @@ while :; do
 		ADD)
 			add "$arg"
 		;;
+		CYCLE)
+			if ! grep -q "^[0-9]*$" <<< "$arg"; then
+				_invalid "value '$arg' should be a number."
+			fi
+			i=0
+			while [ $i -lt $arg ]; do
+				add "$(tr -dc a-z < /dev/urandom | head -c 13)"
+				i=$((i + 1))
+			done
+		;;
 		SWITCH)
 			switch
 		;;
 		STATUS)
-			status "$arg"
+			_status "$arg"
 		;;
 		EXIT)
 			echo -e "${PURPLE}Exiting the CLI${RESET}"
