@@ -8,15 +8,15 @@ PRIMARY_HOST="primary"
 PRIMARY_PORT="3306"
 PRIMARY_ADMIN="root"
 PRIMARY_ADMIN_PASSWORD="root"
-PRIMARY_SLAVE="slave"
-PRIMARY_SLAVE_PASSWORD="password"
+PRIMARY_REPLICA="replica"
+PRIMARY_REPLICA_PASSWORD="password"
 
 REPLICA_HOST="replica"
 REPLICA_PORT="3306"
 REPLICA_ADMIN="root"
 REPLICA_ADMIN_PASSWORD="root"
-REPLICA_SLAVE="slave"
-REPLICA_SLAVE_PASSWORD="password"
+REPLICA_USER="replica"
+REPLICA_USER_PASSWORD="password"
 
 #                 #
 # UTILS VARIABLES #
@@ -136,10 +136,10 @@ is_up() {
 	return 1
 }
 
-# is_slave primary|replica
-is_slave() {
+# is_replica primary|replica
+is_replica() {
 	if ! [ $# -eq 1 ]; then
-		log_err "'is_slave' received invalid arguments."
+		log_err "'is_replica' received invalid arguments."
 		return 1
 	fi
 	local out="$(exe_on $1 "$SLAVE_STATUS" | \
@@ -150,24 +150,22 @@ is_slave() {
 	fi
 	if grep -qwe "yes" <<< "${out,,}"; then
 		if grep -qwe "no" <<< "${out,,}"; then
-			log_warn "Detected a problem in slave '$1'"
+			log_warn "Detected a problem in replica '$1'"
 		fi
 		return 0
 	fi
 	return 1
 }
 
-# is_slave 
-
-# switch_to_master primary|replica
-switch_to_master() {
+# switch_to_primary primary|replica
+switch_to_primary() {
 	is_up $1
 	if ! [ $? ]; then
 		log_info "'$1' is not available."
 		return 1
 	fi
-	if ! is_slave $1; then
-		log_info "'$1' is not a slave."
+	if ! is_replica $1; then
+		log_info "'$1' is not a replica."
 		return 1
 	fi
 
@@ -175,19 +173,19 @@ switch_to_master() {
 	exe_on $1 "$UNSET_RDONLY"
 	exe_on $1 "$STOP_SLAVE"
 	exe_on $1 "$RESET_SLAVE"
-	log_info "'$1' is now master"
+	log_info "'$1' is now primary"
 	return 0
 }
 
-# switch_to_slave primary|replica
-switch_to_slave() {
+# switch_to_replica primary|replica
+switch_to_replica() {
 	is_up $1
 	if ! [ $? ]; then
 		log_info "'$1' is not availble."
 		return 1
 	fi
-	if is_slave $1; then
-		log_info "'$1' is already a slave."
+	if is_replica $1; then
+		log_info "'$1' is already a replica."
 		return 1
 	fi
 
@@ -197,47 +195,47 @@ switch_to_slave() {
 	exe_on $1 "${SET_RDONLY}"
 	exe_on $1 "${!change_master}"
 	exe_on $1 "${START_SLAVE}"
-	log_info "'$1' is now slave"
+	log_info "'$1' is now replica"
 	return 0
 }
 
 switch() {
-	local slave=""
 	local replica=""
+	local primary=""
 
-	if is_slave "primary"; then
-		slave="primary"
-		master="replica"
+	if is_replica "primary"; then
+		replica="primary"
+		primary="replica"
 	fi
-	if is_slave "replica"; then
-		if ! [ -z "$slave" ]; then
-			log_err "Both primary and replica are slaves." 1
+	if is_replica "replica"; then
+		if ! [ -z "$replica" ]; then
+			log_err "Both primary and replica are replicas." 1
 		fi
-		slave="replica"
-		master="primary"
+		replica="replica"
+		primary="primary"
 	fi
 
-	if [ -z "$master" ]; then
+	if [ -z "$primary" ]; then
 		log_warn "Master not found."
 	else
-		log_info "Detected '$master' as master"
+		log_info "Detected '$primary' as primary"
 	fi
-	if [ -z "$slave" ]; then
+	if [ -z "$replica" ]; then
 		log_err "Slave not found." 3
 	else
-		log_info "Detected '$slave' as slave"
+		log_info "Detected '$replica' as replica"
 	fi
 
-	if is_up "$master"; then
-		switch_to_slave "$master"
-		if ! [ $? ]; then
-			log_warn "Cannot switch master to slave."
-		fi
-	fi
-
-	switch_to_master "$slave"
+	switch_to_primary "$replica"
 	if ! [ $? ]; then
-		log_err "Cannot switch slave into master."
+		log_err "Cannot switch replica into primary."
+	fi
+
+	if is_up "$primary"; then
+		switch_to_replica "$primary"
+		if ! [ $? ]; then
+			log_warn "Cannot switch primary to replica."
+		fi
 	fi
 }
 
@@ -248,8 +246,8 @@ switch() {
 # ask options
 # check variables
 
-# switch_to_master "primary"
-# switch_to_slave "replica"
+# switch_to_primary "primary"
+# switch_to_replica "replica"
 
 while [ $# -gt 0 ]; do
 	tmp="$1"
@@ -284,8 +282,8 @@ done
 
 # DYNAMIC VARIABLES
 
-CHANGE_MASTER_REPLICA="CHANGE MASTER TO MASTER_HOST='$PRIMARY_HOST', MASTER_USER='$PRIMARY_SLAVE', MASTER_PASSWORD='$PRIMARY_SLAVE_PASSWORD', MASTER_PORT=$PRIMARY_PORT;"
-CHANGE_MASTER_PRIMARY="CHANGE MASTER TO MASTER_HOST='$REPLICA_HOST', MASTER_USER='$REPLICA_SLAVE', MASTER_PASSWORD='$REPLICA_SLAVE_PASSWORD', MASTER_PORT=$REPLICA_PORT;"
+CHANGE_MASTER_REPLICA="CHANGE MASTER TO MASTER_HOST='$PRIMARY_HOST', MASTER_USER='$PRIMARY_REPLICA', MASTER_PASSWORD='$PRIMARY_REPLICA_PASSWORD', MASTER_PORT=$PRIMARY_PORT;"
+CHANGE_MASTER_PRIMARY="CHANGE MASTER TO MASTER_HOST='$REPLICA_HOST', MASTER_USER='$REPLICA_USER', MASTER_PASSWORD='$REPLICA_USER_PASSWORD', MASTER_PORT=$REPLICA_PORT;"
 
 switch
 
